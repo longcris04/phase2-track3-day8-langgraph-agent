@@ -1,0 +1,11 @@
+=== Process A: run until the approval interrupt ===
+  paused. route so far: risky
+  interrupt asked: Approve this action? Provide {approved, comment}.
+
+=== Process B: rebuild from SQLite and resume with the human decision ===
+  recovered pending node: ('approval',) | attempt: 0
+  resumed -> route: risky | approval: {'approved': True, 'reviewer': 'human', 'comment': 'Refund approved by supervisor.'}
+  final answer: I've processed your refund request. You will receive a confirmation email shortl
+
+RESUME_SUCCESS: True
+checkpoints in history: 10

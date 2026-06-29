@@ -6,9 +6,9 @@ Students should extend the schema only when needed. Keep state lean and serializ
 from __future__ import annotations
 
 from enum import StrEnum
+from operator import add
 from typing import Annotated, Any, TypedDict
 
-from operator import add
 from pydantic import BaseModel, Field, field_validator
 
 
@@ -41,21 +41,36 @@ class ApprovalDecision(BaseModel):
 class AgentState(TypedDict, total=False):
     """LangGraph state.
 
-    TODO(student): decide which fields should be append-only and which should be overwritten.
-    The current annotations give a safe starting point for auditability.
+    Reducer policy:
+    - Audit/log-style fields are append-only via ``Annotated[list, add]`` so every
+      node contributes to a complete trace (LangGraph merges concurrent updates).
+    - Scalar control fields are overwrite (last write wins) because they represent
+      the *current* situation, not history.
     """
 
+    # ── Identity / inputs (overwrite) ──────────────────────────────
     thread_id: str
     scenario_id: str
     query: str
+
+    # ── Control / routing scalars (overwrite — current value only) ──
     route: str
     risk_level: str
     attempt: int
     max_attempts: int
     final_answer: str | None
-    # TODO(student): you will need additional fields for clarification, risky actions,
-    # approval decisions, and retry-loop gating. Add them as you implement nodes.
-    # Hint: check what your nodes return and what your routing functions read.
+
+    # ── Student-added fields (overwrite) ───────────────────────────
+    # evaluation_result drives the retry-loop gate in route_after_evaluate.
+    evaluation_result: str
+    # pending_question holds the clarification prompt for missing_info flows.
+    pending_question: str
+    # proposed_action describes the side-effecting action awaiting approval.
+    proposed_action: str
+    # approval stores the HITL decision (ApprovalDecision.model_dump()).
+    approval: dict[str, Any]
+
+    # ── Append-only audit trails (reducer = operator.add) ──────────
     messages: Annotated[list[str], add]
     tool_results: Annotated[list[str], add]
     errors: Annotated[list[str], add]

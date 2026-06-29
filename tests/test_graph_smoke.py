@@ -3,8 +3,9 @@
 These tests verify end-to-end graph execution. They will fail with NotImplementedError
 until you implement nodes, routing, and graph wiring.
 
-Note: These tests require a configured LLM (OPENAI_API_KEY or ANTHROPIC_API_KEY)
-because classify_node and answer_node use real LLM calls.
+Note: These tests require a configured LLM (OPENROUTER_API_KEY preferred, or
+GEMINI_API_KEY / OPENAI_API_KEY / ANTHROPIC_API_KEY) because classify_node and
+answer_node use real LLM calls. conftest.py loads .env automatically.
 """
 
 import importlib.util
@@ -18,8 +19,13 @@ pytestmark = [
         reason="langgraph not installed",
     ),
     pytest.mark.skipif(
-        not os.getenv("GEMINI_API_KEY") and not os.getenv("OPENAI_API_KEY") and not os.getenv("ANTHROPIC_API_KEY"),
-        reason="No LLM API key configured (set GEMINI_API_KEY, OPENAI_API_KEY, or ANTHROPIC_API_KEY)",
+        not (
+            os.getenv("OPENROUTER_API_KEY")
+            or os.getenv("GEMINI_API_KEY")
+            or os.getenv("OPENAI_API_KEY")
+            or os.getenv("ANTHROPIC_API_KEY")
+        ),
+        reason="No LLM API key configured (set OPENROUTER_API_KEY or another provider key)",
     ),
 ]
 

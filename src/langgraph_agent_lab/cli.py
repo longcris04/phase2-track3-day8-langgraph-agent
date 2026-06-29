@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 import typer
 import yaml
@@ -17,6 +18,30 @@ from .scenarios import load_scenarios
 from .state import initial_state
 
 app = typer.Typer(no_args_is_help=True)
+
+
+def _persistence_self_check(scenarios: list, build_graph_fn: Callable[..., Any]) -> bool:
+    """Prove durable recovery: run one scenario through a SQLite checkpointer,
+    then rebuild the graph from the on-disk DB and recover its state history.
+
+    Returns True when the recovered checkpoint history is non-empty — i.e. the
+    state survives independently of the original graph object.
+    """
+    try:
+        graph = build_graph_fn(checkpointer=build_checkpointer("sqlite", "outputs/checkpoints.sqlite"))
+        scenario = scenarios[0]
+        state = initial_state(scenario)
+        run_config = {"configurable": {"thread_id": f"persist-check-{scenario.id}"}}
+        graph.invoke(state, config=run_config)
+        # Rebuild from disk (fresh object) and recover history.
+        recovered = build_graph_fn(
+            checkpointer=build_checkpointer("sqlite", "outputs/checkpoints.sqlite")
+        )
+        history = list(recovered.get_state_history(run_config))
+        return len(history) > 0
+    except Exception as exc:  # noqa: BLE001 — persistence is an extension; never block the run
+        typer.echo(f"persistence self-check skipped: {type(exc).__name__}: {exc}")
+        return False
 
 
 @app.command("run-scenarios")
@@ -35,7 +60,8 @@ def run_scenarios(
         run_config = {"configurable": {"thread_id": state["thread_id"]}}
         final_state = graph.invoke(state, config=run_config)
         metrics.append(metric_from_state(final_state, scenario.expected_route.value, scenario.requires_approval))
-    report = summarize_metrics(metrics)
+    resume_success = _persistence_self_check(scenarios, build_graph)
+    report = summarize_metrics(metrics, resume_success=resume_success)
     write_metrics(report, output)
     if cfg.get("report_path"):
         write_report(report, cfg["report_path"])

@@ -36,12 +36,19 @@ agent-lab = "langgraph_agent_lab.cli:app"
 where = ["src"]
 
 [tool.ruff]
-line-length = 100
+line-length = 120
 target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "N", "ANN"]
-ignore = ["ANN101", "ANN102"]
+# ANN401: the factory/event helpers (get_llm, build_graph, build_checkpointer,
+# make_event) intentionally use `Any` for opaque third-party / dynamic payloads.
+ignore = ["ANN401"]
+
+[tool.ruff.lint.per-file-ignores]
+# Test functions don't need return-type annotations; the smoke test imports
+# intentionally sit below the module-level skip markers (E402).
+"tests/**" = ["ANN201", "ANN001", "E402"]
 
 [tool.pytest.ini_options]
 minversion = "8.0"
